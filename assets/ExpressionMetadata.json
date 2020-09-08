@@ -1,4 +1,4 @@
-{
+﻿{
     "$schema": "./schemas/ExpressionMetadata.schema.json",
     "functionSignatures": [
         {
