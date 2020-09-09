@@ -28,13 +28,27 @@ export interface IResourceInfo {
     parent?: IResourceInfo;
     children: IResourceInfo[];
 
+    /**
+     * The full reource name, split into segments (e.g. "sqlServer/firewallRule1" => ["sqlServer", "firewallRule1"]).
+     * For nested child resources, the name of the parent will automatically be added if not specified in the child
+     */
     nameSegmentExpressions: string[];
+
+    /**
+     * The full reource type, split into segments (e.g. "Microsoft.sql/servers/firewallRules" => ["Microsoft.sql/servers", "firewallRules"]).
+     * For nested child resources, the type of the parent will automatically be added if not specified in the child
+     */
     typeSegmentExpressions: string[];
 
     /**
      * Provides just the last segment in the name
      */
     shortNameExpression: string | undefined;
+
+    /**
+     * asdf
+     */
+    shortTypeExpression: string | undefined;
 
     /**
      * Gets the full name of the resource as a TLE expression
@@ -50,6 +64,8 @@ export interface IResourceInfo {
      * Creates a resourceId expression to reference this resource
      */
     getResourceIdExpression(): string | undefined;
+
+    getFriendlyName(): string;
 }
 
 export interface IJsonResourceInfo extends IResourceInfo {
@@ -61,7 +77,10 @@ export interface IJsonResourceInfo extends IResourceInfo {
     /**
      * The COPY element for this resource, if any
      */
-    copyElement: Json.ObjectValue | undefined;
+    copyBlockElement: Json.ObjectValue | undefined;
+
+    //asdf comment
+    getFriendlyName(): string;
 }
 
 export class ResourceInfo implements IResourceInfo {
@@ -72,8 +91,26 @@ export class ResourceInfo implements IResourceInfo {
         }
     }
 
+    public getFriendlyName(): string {
+        throw new Error("Method not implemented."); //asdf
+    }
+
     public get shortNameExpression(): string {
         return this.nameSegmentExpressions[this.nameSegmentExpressions.length - 1];
+    }
+
+    public get shortTypeExpression(): string | undefined { //asdf?
+        if (this.typeSegmentExpressions.length > 1) {
+            return this.typeSegmentExpressions[this.typeSegmentExpressions.length - 1];
+        } else {
+            const firstSegment = this.typeSegmentExpressions[0];
+            if (isSingleQuoted(firstSegment)) {
+                const a = removeSingleQuotes(firstSegment).replace(/.+\//, ''); //asdf
+                return a;
+            } else {
+                return firstSegment;
+            }
+        }
     }
 
     public getFullTypeExpression(): string | undefined {
@@ -95,13 +132,16 @@ export class ResourceInfo implements IResourceInfo {
     }
 }
 
-export class JsonResourceInfo extends ResourceInfo implements JsonResourceInfo {
+export class JsonResourceInfo extends ResourceInfo implements IJsonResourceInfo {
     public constructor(nameSegmentExpressions: string[], typeSegmentExpressions: string[], public readonly resourceObject: Json.ObjectValue, parent: IJsonResourceInfo | undefined) {
         super(nameSegmentExpressions, typeSegmentExpressions, parent);
     }
-
-    public get copyElement(): Json.ObjectValue | undefined {
+    public get copyBlockElement(): Json.ObjectValue | undefined {
         return this.resourceObject.getPropertyValue(templateKeys.copyLoop)?.asObjectValue;
+    }
+
+    public getFriendlyName(): string {
+        return getResourceFriendlyName(this);
     }
 }
 
@@ -285,7 +325,7 @@ export function splitResourceNameIntoSegments(nameUnquotedValue: string, scope: 
     if (isJsonStringAnExpression(nameUnquotedValue)) {
         // It's an expression.  Try to break it into segments by handling certain common patterns
 
-        // No sense taking time for parsing if '/' is nowhere in the expression
+        // No sense taking time for parsing the expression if '/' is nowhere in the expression
         if (nameUnquotedValue.includes('/')) {
             const quotedValue = `"${nameUnquotedValue}"`;
             const parseResult = TLE.Parser.parse(quotedValue, scope);
@@ -382,9 +422,111 @@ function splitResourceTypeIntoSegments(typeNameUnquotedValue: string): string[] 
 
     let segments = typeNameUnquotedValue.split('/');
     if (segments.length >= 2) {
-        // Combine first two segments
+        // The first segment consists of a namespace and an initial name (e.g. 'Microsoft.sql/servers'), so combine our first two entries
         segments = [`${segments[0]}/${segments[1]}`].concat(segments.slice(2));
     }
 
     return segments.map(segment => `'${segment}'`);
+}
+
+//asdf?
+function expressionToFriendlyString(expression: string): string { //asdf pass in expression or json string?  Or either?  Need to distinguish the two better
+    if (isSingleQuoted(expression)) {
+        return removeSingleQuotes(expression); //asdf
+    } else {
+        return jsonStringToFriendlyString(`[${expression}]`); //asdf
+    }
+}
+
+/**
+ * Shortens a label in a way intended to keep the important information but make it easier to read
+ * and shorter (so you can read more in the limited horizontal space)
+ */
+function jsonStringToFriendlyString(expression: string): string { //asdf pass in expression or json string?  Or either?  Need to distinguish the two better
+    let simplified = expression;
+
+    //asdf
+    // If it's an expression - starts and ends with [], but doesn't start with [[, and at least one character inside the []
+    if (simplified && simplified.match(/^\[[^\[].*]$/)) {
+
+        //  variables/parameters('a') -> ${a}
+        // tslint:disable-next-line: no-invalid-template-strings
+        simplified = simplified.replace(/(variables|parameters)\('([^']+)'\)/g, '$${$2}');
+
+        // concat(x,'y') => x,'y'
+        // Repeat multiple times for recursive cases
+        // tslint:disable-next-line:no-constant-condition
+        while (true) {
+            let newLabel = simplified.replace(/concat\((.*)\)/g, '$1');
+            if (simplified !== newLabel) {
+                simplified = newLabel;
+            } else {
+                break;
+            }
+        }
+
+        //asdf?
+        // if (expression !== originalLabel) {
+        //     // If we actually made changes, remove the brackets so users don't think this is the exact expression
+        //     return expression.substr(1, expression.length - 2);
+        // }
+
+        simplified = simplified.slice(1, simplified.length - 1); //asdf
+        //simplified = `"${simplified}"`;
+        return simplified;
+    }
+
+    return expression;
+}
+
+function getResourceFriendlyName(resource: IJsonResourceInfo): string { //asdf
+    const resourceObject = resource.resourceObject;
+
+    // Object contains no elements
+    if (resource.resourceObject.properties.length === 0) {
+        return "(empty resource)"; //asdf shouldn't happen
+    } else {
+        // Object contains elements, look for displayName tag first
+        // tslint:disable-next-line: strict-boolean-expressions
+        let tags = resourceObject.getPropertyValue(templateKeys.tags)?.asObjectValue;
+        let displayName = tags?.getPropertyValue(templateKeys.displayNameTag)?.asStringValue?.unquotedValue;
+        if (displayName) {
+            return displayName;
+        }
+
+        let nameLabel: string;
+        const name = resource.shortNameExpression; //asdf  resourceObject.getPropertyValue(templateKeys.resourceName)?.asStringValue?.unquotedValue;
+        if (name) {
+            nameLabel = expressionToFriendlyString(name);
+        } else {
+            nameLabel = "(unnamed resource)";
+        }
+
+        //asdf
+        // label = this.getLabelFromProperties("namespace", resourceObject);
+        // if (label !== undefined) {
+        //     return label;
+        // }
+
+        //asdflet typeLabel = resource.getFullTypeExpression() ?? "no type";
+        let typeLabel = resource.shortTypeExpression ?? '(no type)';
+        typeLabel = /*asdf expressionToFriendlyString*/ (typeLabel.replace(/microsoft\./ig, 'MS.')); //asdf
+        //typeLabel = expressionToFriendlyString(typeLabel); //asdf
+        typeLabel = removeSingleQuotes(typeLabel);
+
+        //asdf return `{${nameLabel}, ${typeLabel}}`;
+        //asdfreturn `${typeLabel} (${nameLabel})`;
+        return `"${nameLabel}" (${typeLabel})`;
+
+        //asdf    }
+
+        // } else if (elementInfo.current.value.kind === Json.ValueKind.ArrayValue || elementInfo.current.value.kind === Json.ValueKind.ObjectValue) {
+        //     // The value of the node is an array or object (e.g. properties or resources) - return key as the node label
+        //     return toFriendlyString(keyNode);
+        // } else if (elementInfo.current.value.start !== undefined) {
+        //     // For other value types, display key and value since they won't be expandable
+        //     const valueNode = this.tree && this.tree.getValueAtCharacterIndex(elementInfo.current.value.start, ContainsBehavior.strict);
+
+        //     return `${keyNode instanceof Json.StringValue ? toFriendlyString(keyNode) : "?"}: ${toFriendlyString(valueNode)}`;
+    }
 }
