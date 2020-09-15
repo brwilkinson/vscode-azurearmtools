@@ -835,7 +835,7 @@ from resource \`name1a\` of type \`def\``
                     },
                     expected: [
                         {
-                            label: "${sqlServer}",
+                            label: "parent (${sqlServer})",
                             detail: "servers",
                             insertText: `"[resourceId('Microsoft.Sql/servers', variables('sqlServer'))]"`
                         }
@@ -931,14 +931,14 @@ from resource \`name1a\` of type \`def\``
                     },
                     expected: [
                         {
-                            label: "variables('sqlServer')"
+                            label: "${sqlServer}"
                         },
                         {
-                            label: "variables('firewallRuleName')",
+                            label: "${firewallRuleName}",
                             insertText: `"[resourceId('Microsoft.Sql/servers/firewallRules', variables('sqlServer'), variables('firewallRuleName'))]"`
                         },
                         {
-                            label: "variables('firewallRuleName2')",
+                            label: "${firewallRuleName2}",
                             insertText: `"[resourceId('Microsoft.Sql/servers/firewallRules', variables('sqlServer'), variables('firewallRuleName2'))]"`
                         }
                     ]
@@ -984,7 +984,7 @@ from resource \`name1a\` of type \`def\``
                         },
                         {
                             // parent
-                            label: "${sqlServer}"
+                            label: "parent (${sqlServer})"
                         },
                         {
                             // sibling child
@@ -1162,7 +1162,7 @@ from resource \`name1a\` of type \`def\``
                 },
                 expected: [
                     {
-                        label: "${parent1}"
+                        label: "parent (${parent1})"
                     },
                     {
                         label: "child1b"

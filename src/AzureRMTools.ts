@@ -1171,14 +1171,14 @@ export class AzureRMTools {
                             let f = false;
                             if (info.parent) {
                                 //asdf shorten line
-                                lenses.push(new ShowChildParentCodeLens(scope, info.resourceObject.span, (<IJsonResourceInfo>info.parent).resourceObject.span, `Child of ${(<IJsonResourceInfo>info.parent).getFriendlyName({ fullResourceName: false })}`));
+                                lenses.push(new ShowChildParentCodeLens(scope, info.resourceObject.span, (<IJsonResourceInfo>info.parent).resourceObject.span, `Child of ${(<IJsonResourceInfo>info.parent).getFriendlyResourceLabel({})}`));
                                 f = true;
                             }
                             if (info.children.length > 0) {
                                 f = true;
                                 const childrenTitle = `${info.children.length} ${info.children.length === 1 ? "child" : "children"}`;
                                 //asdf restrict length
-                                const children = info.children.map(child => (<IJsonResourceInfo>child).getFriendlyName({ fullResourceName: false })).join(", ");
+                                const children = info.children.map(child => (<IJsonResourceInfo>child).getFriendlyResourceLabel({})).join(", ");
                                 lenses.push(new ShowChildParentCodeLens(scope, info.resourceObject.span, (<IJsonResourceInfo>info.children[0]).resourceObject.span, `${childrenTitle}: ${children}`));
                             }
                             if (!f) {
